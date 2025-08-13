@@ -27,7 +27,7 @@ st.sidebar.title("🔧 Setup")
 
 # OpenAI API Key input
 api_key = st.sidebar.text_input(
-    "Open API Key", 
+    "OpenAI API Key", 
     type="password",
     help="Get your API key from https://platform.openai.com/api-keys"
 )
@@ -52,21 +52,22 @@ def upload_files_to_vector_store(uploaded_files):
                 name="Company Documents POC"
             )
             
-            # Prepare files for upload
-            file_streams = []
+            # Upload files first
+            uploaded_file_ids = []
             for uploaded_file in uploaded_files:
-                file_streams.append((uploaded_file.name, uploaded_file.getvalue()))
+                # Create a temporary file-like object
+                file_obj = openai.OpenAI().files.create(
+                    file=(uploaded_file.name, uploaded_file.getvalue()),
+                    purpose="assistants"
+                )
+                uploaded_file_ids.append(file_obj.id)
             
-            # Upload files to vector store
-            file_batch = client.beta.vector_stores.file_batches.upload_and_poll(
-                vector_store_id=vector_store.id,
-                files=[
-                    openai.OpenAI().files.create(
-                        file=(name, content), 
-                        purpose="assistants"
-                    ) for name, content in file_streams
-                ]
-            )
+            # Add files to vector store
+            for file_id in uploaded_file_ids:
+                client.beta.vector_stores.files.create(
+                    vector_store_id=vector_store.id,
+                    file_id=file_id
+                )
             
             st.session_state.vector_store_id = vector_store.id
             return vector_store.id
